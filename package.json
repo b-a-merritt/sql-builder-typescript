@@ -1,11 +1,29 @@
 {
-  "name": "sql-builder-typescript",
+  "name": "postgresqurl",
   "version": "0.0.1",
   "description": "Small utility for building sql statements",
-  "main": "index.js",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "repository": "https://github.com/b-a-merritt/sql-builder-typescript",
   "author": "Ben Merritt",
   "license": "MIT",
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org"
+  },
+  "include": [
+    "/dist"
+  ],
+  "files": [
+    "dist/**/*"
+  ],
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "format": "prettier --write .",
