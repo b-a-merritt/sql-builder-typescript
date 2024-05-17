@@ -6,20 +6,13 @@ import { BuilderMethods } from './types/methods';
 import { OrderBy } from './types/order';
 import { Where } from './types/where';
 
-export interface SQURL {
-  as: BuilderMethods.As;
-  select: BuilderMethods.Select;
-  delete: BuilderMethods.Delete;
-  insert: BuilderMethods.Insert;
-  update: BuilderMethods.Update;
-}
-
 export class SQURL {
   private alias?: string;
   private delimiter: ' ' | '\n' = '\n';
   private schema: string = 'public';
   private table: string;
   private type!: 'SELECT' | 'DELETE' | 'INSERT' | 'UPDATE';
+  private placeholderChar: string | null;
 
   private fields?: Set<string>;
   private joinTerms?: Set<string>;
@@ -31,14 +24,18 @@ export class SQURL {
   private limitAmt?: number;
   private changeKeys?: string[];
   private changeValues?: string[];
+  private placeholders?: string[];
 
   constructor(table: string, options?: InitializationOptions) {
     this.schema = options?.schema || 'public';
     this.table = table;
     this.delimiter = !!options?.pretty ? '\n' : ' ';
+    this.placeholderChar = !!options?.placeholderChar
+      ? options.placeholderChar
+      : null;
   }
 
-  public as = (alias: string) => {
+  public as: BuilderMethods.As = (alias: string) => {
     this.alias = alias;
     return {
       delete: this.delete,
@@ -70,10 +67,11 @@ export class SQURL {
     };
   };
 
-  public update = (obj: Record<string, unknown>) => {
+  public update: BuilderMethods.Update = (obj: Record<string, unknown>) => {
     this.type = 'UPDATE';
     this.changeKeys = Object.keys(obj);
-    this.changeValues = Object.values(obj).map(this.formatInsertValue);
+    this.changeValues = Object.values(obj).map(this.formatValue);
+
     return {
       query: this.query,
       returning: this.returning,
@@ -81,18 +79,20 @@ export class SQURL {
     };
   };
 
-  public insert = (obj: Record<string, unknown>) => {
+  public insert: BuilderMethods.Insert = (obj: Record<string, unknown>) => {
     this.type = 'INSERT';
     this.changeKeys = Object.keys(obj);
-    this.changeValues = Object.values(obj).map(this.formatInsertValue);
+    this.changeValues = Object.values(obj).map(this.formatValue);
     return {
       query: this.query,
       returning: this.returning,
     };
   };
 
-  private formatInsertValue = (value: unknown) => {
-    if (typeof value === 'string' && VALUE_KEYWORDS.includes(value)) {
+  private formatValue = (value: unknown) => {
+    if (Array.isArray(value)) {
+      return `'{${value.join(', ')}}'`;
+    } else if (typeof value === 'string' && VALUE_KEYWORDS.includes(value)) {
       return value;
     } else if (typeof value === 'number') {
       return `${value}`;
@@ -102,7 +102,7 @@ export class SQURL {
     return `'${value}'`;
   };
 
-  public delete = () => {
+  public delete: BuilderMethods.Delete = () => {
     this.type = 'DELETE';
     return {
       query: this.query,
@@ -129,7 +129,7 @@ export class SQURL {
     }
   };
 
-  private join = (join: Join) => {
+  private join: BuilderMethods.Join = (join: Join) => {
     if (!this.joinTerms) {
       this.joinTerms = new Set<string>();
     }
@@ -143,7 +143,7 @@ export class SQURL {
       );
     }
 
-    const joinTerm = `${join.type} JOIN ${this.schema}."${join.tables.right}"${join.aliases?.right ? ' AS "' + join.aliases.right + '"' : ''}`;
+    const joinTerm = `${join.type || 'LEFT'} JOIN ${this.schema}."${join.tables.right}"${join.aliases?.right ? ' AS "' + join.aliases.right + '"' : ''}`;
     const onStatement = `${this.delimiter}ON ${join?.aliases?.left ? `"${join.aliases.left}"` : `${this.schema}."${join.tables.left}"`}.${join.on.left} = ${join?.aliases?.right ? `"${join.aliases.right}"` : `${this.schema}."${join.tables.right}"`}.${join.on.right}`;
 
     this.joinTerms.add(joinTerm + onStatement);
@@ -175,7 +175,7 @@ export class SQURL {
     };
   };
 
-  private returning = (fields: string[]) => {
+  private returning: BuilderMethods.Returning = (fields: string[]) => {
     this.fields = new Set<string>(fields);
     return {
       query: this.query,
@@ -183,14 +183,16 @@ export class SQURL {
     };
   };
 
-  private limit = (amount: number) => {
+  private limit: BuilderMethods.Limit = (amount: number) => {
     this.limitAmt = amount;
     return {
       query: this.query,
     };
   };
 
-  private groupBy = (fields: { field: string; table: string }[]) => {
+  private groupBy: BuilderMethods.GroupBy = (
+    fields: { field: string; table: string }[]
+  ) => {
     if (!this.groupByTerms) {
       this.groupByTerms = new Set<string>();
     }
@@ -222,32 +224,50 @@ export class SQURL {
   };
 
   private findClause = (clause: Where) => {
+    if (!this.placeholders) {
+      this.placeholders = [];
+    }
+
+    const placeholderLength =
+      (this.fields?.size || 0) + this.placeholders.length + 1;
+
     if (clause?.between) {
-      return `${WHERE_CLAUSE_MAP['between']} '${clause.between[0]}' AND '${clause.between[1]}'`;
+      this.placeholders.push(this.formatValue(clause.between[0]));
+      this.placeholders.push(this.formatValue(clause.between[1]));
+      return `${WHERE_CLAUSE_MAP['between']} ${this.placeholderChar || `$${placeholderLength}`} AND ${this.placeholderChar || `$${placeholderLength + 1}`}`;
     } else if (clause?.equals) {
-      return `${WHERE_CLAUSE_MAP['equals']} '${clause.equals}'`;
+      this.placeholders.push(this.formatValue(clause.equals));
+      return `${WHERE_CLAUSE_MAP['equals']} ${this.placeholderChar || `$${placeholderLength}`}`;
     } else if (clause?.gt) {
-      return `${WHERE_CLAUSE_MAP['gt']} '${clause.gt}'`;
+      this.placeholders.push(this.formatValue(clause.gt));
+      return `${WHERE_CLAUSE_MAP['gt']} ${this.placeholderChar || `$${placeholderLength}`}`;
     } else if (clause?.gte) {
-      return `${WHERE_CLAUSE_MAP['gte']} '${clause.gte}'`;
+      this.placeholders.push(this.formatValue(clause.gte));
+      return `${WHERE_CLAUSE_MAP['gte']} ${this.placeholderChar || `$${placeholderLength}`}`;
     } else if (clause?.in) {
-      return `${WHERE_CLAUSE_MAP['in']} '${clause.in}'`;
+      this.placeholders.push(this.formatValue(clause.in));
+      return `${WHERE_CLAUSE_MAP['in']} ${this.placeholderChar || `$${placeholderLength}`}`;
     } else if (clause?.is) {
-      return `${WHERE_CLAUSE_MAP['is']} '${clause.is}'`;
+      this.placeholders.push(this.formatValue(clause.is));
+      return `${WHERE_CLAUSE_MAP['is']} ${this.placeholderChar || `$${placeholderLength}`}`;
     } else if (clause?.isNot) {
-      return `${WHERE_CLAUSE_MAP['isNot']} '${clause.isNot}'`;
+      this.placeholders.push(this.formatValue(clause.isNot));
+      return `${WHERE_CLAUSE_MAP['isNot']} ${this.placeholderChar || `$${placeholderLength}`}`;
     } else if (clause?.like) {
-      return `${WHERE_CLAUSE_MAP['like']} '${clause.like}'`;
+      this.placeholders.push(this.formatValue(clause.like));
+      return `${WHERE_CLAUSE_MAP['like']} ${this.placeholderChar || `$${placeholderLength}`}`;
     } else if (clause?.lt) {
-      return `${WHERE_CLAUSE_MAP['lt']} '${clause.lt}'`;
+      this.placeholders.push(this.formatValue(clause.lt));
+      return `${WHERE_CLAUSE_MAP['lt']} ${this.placeholderChar || `$${placeholderLength}`}`;
     } else if (clause?.lte) {
-      return `${WHERE_CLAUSE_MAP['lte']} '${clause.lte}'`;
+      this.placeholders.push(this.formatValue(clause.lte));
+      return `${WHERE_CLAUSE_MAP['lte']} ${this.placeholderChar || `$${placeholderLength}`}`;
     } else {
       throw Error('Clause operator not recognized');
     }
   };
 
-  private having = (clauses: Where[]) => {
+  private having: BuilderMethods.Having = (clauses: Where[]) => {
     this.havingClauses = new Set<string>();
 
     for (const clause of clauses) {
@@ -263,7 +283,7 @@ export class SQURL {
     };
   };
 
-  private orderBy = (orderByTerms: OrderBy[]) => {
+  private orderBy: BuilderMethods.OrderBy = (orderByTerms: OrderBy[]) => {
     if (!this.orderByTerms) {
       this.orderByTerms = new Set<string>();
     }
@@ -280,12 +300,20 @@ export class SQURL {
     };
   };
 
-  private where = (clauses: Where[]) => {
+  private where: BuilderMethods.Where = (clauses: Where[]) => {
     this.whereClauses = new Set<string>();
+    if (!this.placeholders) {
+      this.placeholders = [];
+    }
 
     for (const clause of clauses) {
+      const placeholderLength =
+        (this.fields?.size || 0) + this.placeholders.length + 1;
+      this.placeholders.push(
+        `"${clause?.table || this.table}".${clause.field}`
+      );
       this.whereClauses.add(
-        `"${clause?.table || this.table}".${clause.field} ${this.findClause(clause)}`
+        `${this.placeholderChar || `$${placeholderLength}`} ${this.findClause(clause)}`
       );
     }
 
@@ -295,7 +323,7 @@ export class SQURL {
     };
   };
 
-  private query = () => {
+  private query: BuilderMethods.Query = () => {
     switch (this.type) {
       case 'SELECT':
         return this.formatSelect();
@@ -310,9 +338,20 @@ export class SQURL {
 
   private formatSelect = () => {
     this.groupByKeysWithJoins();
+    const placeholders: string[] = [...this.fields!];
+    let currPlaceholder = 1;
+
+    const fields = `${[...this.fields!].map(() => {
+      const placeholder = this.placeholderChar || `$${currPlaceholder}`;
+      currPlaceholder++;
+      return placeholder;
+    })}${this.delimiter}`;
+
+    for (const param of this.placeholders!) {
+      placeholders.push(param);
+    }
 
     const select = `SELECT${this.delimiter}`;
-    const fields = `${[...this.fields!].join(',' + this.delimiter)}${this.delimiter}`;
     const from = `FROM ${this.schema}."${this.table}"${this.delimiter}`;
     const as = this.alias ? ` AS "${this.alias}"${this.delimiter}` : '';
     const join = !!this.joinTerms
@@ -322,7 +361,12 @@ export class SQURL {
       ? `WHERE ${[...this.whereClauses].join(this.delimiter + 'AND ')}${this.delimiter}`
       : '';
     const groupBy = !!this.groupByTerms
-      ? `GROUP BY ${[...this.groupByTerms].join(',' + this.delimiter)}${this.delimiter}`
+      ? `GROUP BY ${[...this.groupByTerms]
+          .map((clause) => {
+            placeholders.push(clause);
+            return `${this.placeholderChar || `$${placeholders.length}`}`;
+          })
+          .join(',')}${this.delimiter}`
       : '';
     const having = !!this.havingClauses
       ? `HAVING ${[...this.havingClauses].join(',' + this.delimiter)}${this.delimiter}`
@@ -332,21 +376,44 @@ export class SQURL {
       : '';
     const limit = !!this.limitAmt ? `LIMIT ${this.limitAmt}` : '';
 
-    return `${select}${fields}${from}${as}${join}${where}${groupBy}${having}${orderBy}${limit}`;
+    const query = `${select}${fields}${from}${as}${join}${where}${groupBy}${having}${orderBy}${limit}`;
+
+    return {
+      query,
+      placeholders,
+    };
   };
 
   private formatInsert = () => {
+    const placeholders: string[] = [];
+
     const insertInto = `INSERT INTO ${this.schema}."${this.table}"${this.delimiter}`;
     const keys = `(${this.delimiter}${this.changeKeys!.join(',' + this.delimiter)}${this.delimiter})${this.delimiter}`;
-    const values = `VALUES (${this.delimiter}${this.changeValues!.join(',' + this.delimiter)}${this.delimiter})${this.delimiter}`;
+    const values = `VALUES (${this.delimiter}${this.changeValues!.map(
+      (value) => {
+        placeholders.push(value);
+        return `${this.placeholderChar || `$${placeholders.length}`}`;
+      }
+    )!.join(',' + this.delimiter)}${this.delimiter})${this.delimiter}`;
     const returning = !!this.fields
-      ? `RETURNING ${[...this.fields].join(',' + this.delimiter)}${this.delimiter}`
+      ? `RETURNING ${[...this.fields]
+          .map((value) => {
+            placeholders.push(value);
+            return `${this.placeholderChar || `$${placeholders.length}`}`;
+          })
+          .join(',' + this.delimiter)}${this.delimiter}`
       : '';
 
-    return `${insertInto}${keys}${values}${returning}`;
+    const query = `${insertInto}${keys}${values}${returning}`;
+    return {
+      query,
+      placeholders,
+    };
   };
 
   private formatDelete = () => {
+    const placeholders: string[] = [];
+
     const deleteFrom = `DELETE FROM ${this.schema}."${this.table}"${this.delimiter}`;
     const where = !!this.whereClauses
       ? `WHERE ${[...this.whereClauses].join(this.delimiter + 'AND ')}${this.delimiter}`
@@ -355,13 +422,25 @@ export class SQURL {
       ? `RETURNING ${[...this.fields].join(',' + this.delimiter)}`
       : '';
 
-    return `${deleteFrom}${where}${returning}`;
+    const query = `${deleteFrom}${where}${returning}`;
+
+    return {
+      query,
+      placeholders,
+    };
   };
 
   private formatUpdate = () => {
+    const placeholders: string[] = [];
+
     const update = `UPDATE ${this.schema}."${this.table}"${this.delimiter}`;
-    const set = `SET (${this.delimiter}${this.changeKeys!.join(',' + this.delimiter)}${this.delimiter})`;
-    const values = ` = (${this.delimiter}${this.changeValues!.join(',' + this.delimiter)}${this.delimiter})${this.delimiter}`;
+    const set = `SET (${this.delimiter}${this.changeKeys!.join(',' + this.delimiter)}${this.delimiter})${this.delimiter}`;
+    const values = `VALUES (${this.delimiter}${this.changeValues!.map(
+      (value) => {
+        placeholders.push(value);
+        return `${this.placeholderChar || `$${placeholders.length}`}`;
+      }
+    )!.join(',' + this.delimiter)}${this.delimiter})${this.delimiter}`;
     const where = !!this.whereClauses
       ? `WHERE ${[...this.whereClauses].join(this.delimiter + 'AND ')}${this.delimiter}`
       : '';
@@ -369,6 +448,15 @@ export class SQURL {
       ? `RETURNING ${[...this.fields].join(',' + this.delimiter)}`
       : '';
 
-    return `${update}${set}${values}${where}${returning}`;
+    for (const param of this.placeholders!) {
+      placeholders.push(param);
+    }
+
+    const query = `${update}${set}${values}${where}${returning}`;
+
+    return {
+      query,
+      placeholders,
+    };
   };
 }

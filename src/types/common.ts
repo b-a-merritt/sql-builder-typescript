@@ -1,4 +1,5 @@
 export type InitializationOptions = {
-  schema?: string;
+  placeholderChar?: string;
   pretty?: boolean;
+  schema?: string;
 };

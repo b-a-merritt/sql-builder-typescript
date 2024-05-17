@@ -11,7 +11,10 @@ export namespace BuilderMethods {
     insert: Insert;
   };
 
-  export type Query = () => string;
+  export type Query = () => {
+    query: string;
+    placeholders?: string[];
+  };
 
   export type Select = (fields: Field[]) => {
     groupBy: GroupBy;
