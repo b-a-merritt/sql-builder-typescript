@@ -21,18 +21,6 @@ jobs:
           yarn
           yarn build
           npm config set '//registry.npmjs.org/:_authToken=${NPM_TOKEN}'
-          get_majmin() { echo "$1" | sed 's/[0-9]*$//g'; }
-          NPMCURR=`npm view ben-merritt/postgresqurl --json | jq -r '."dist-tags"."latest"'`
-          PKG=`jq -r '."version"' package.json`
-          PKGMAJMIN="`get_majmin $PKG`"
-          NPMMAJMIN="`get_majmin $NPMCURR`"
-          if [ "$PKGMAJMIN" != "$NPMMAJMIN" ]
-          then
-                  cat <<< $(jq  '."version"=$version' package.json --arg version ${PKGMAJMIN}0) > package.json
-          else
-                  cat <<< $(jq  '."version"=$version' package.json --arg version ${NPMCURR}) > package.json
-          fi
-          npm --no-git-tag-version version patch
           yarn publish
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
