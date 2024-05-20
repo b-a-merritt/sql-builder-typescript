@@ -70,11 +70,17 @@ export namespace BuilderMethods {
   };
 
   export type Where = (where: WhereArg[]) => {
-    query: Query;
     groupBy: GroupBy;
+    orderBy: OrderBy;
+    query: Query;
   };
 
   export type Limit = (amount: number) => {
+    offset: Offset;
+    query: Query;
+  };
+
+  export type Offset = (amount: number) => {
     query: Query;
   };
 

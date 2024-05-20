@@ -22,6 +22,7 @@ export class SQURL {
   private havingClauses?: Set<string>;
   private orderByTerms?: Set<string>;
   private limitAmt?: number;
+  private offsetAmt?: number;
   private changeKeys?: string[];
   private changeValues?: string[];
   private placeholders?: string[];
@@ -186,6 +187,14 @@ export class SQURL {
   private limit: BuilderMethods.Limit = (amount: number) => {
     this.limitAmt = amount;
     return {
+      offset: this.offset,
+      query: this.query,
+    };
+  };
+
+  private offset: BuilderMethods.Offset = (amount: number) => {
+    this.offsetAmt = amount;
+    return {
       query: this.query,
     };
   };
@@ -318,8 +327,9 @@ export class SQURL {
     }
 
     return {
-      query: this.query,
       groupBy: this.groupBy,
+      orderBy: this.orderBy,
+      query: this.query,
     };
   };
 
@@ -347,7 +357,7 @@ export class SQURL {
       return placeholder;
     })}${this.delimiter}`;
 
-    for (const param of this.placeholders!) {
+    for (const param of this.placeholders || []) {
       placeholders.push(param);
     }
 
@@ -374,9 +384,12 @@ export class SQURL {
     const orderBy = !!this.orderByTerms
       ? `ORDER BY ${[...this.orderByTerms].join(',' + this.delimiter)}${this.delimiter}`
       : '';
-    const limit = !!this.limitAmt ? `LIMIT ${this.limitAmt}` : '';
+    const limit = !!this.limitAmt
+      ? `LIMIT ${this.limitAmt}${this.delimiter}`
+      : '';
+    const offset = !!this.offsetAmt ? `OFFSET ${this.offsetAmt}` : '';
 
-    const query = `${select}${fields}${from}${as}${join}${where}${groupBy}${having}${orderBy}${limit}`;
+    const query = `${select}${fields}${from}${as}${join}${where}${groupBy}${having}${orderBy}${limit}${offset}`;
 
     return {
       query,
