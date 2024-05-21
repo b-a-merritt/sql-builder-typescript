@@ -13,7 +13,7 @@
   </div>
 </div>
 
-PostgreSquirrl (or SQURL) is a PostgreSQL query builder without plans to be anything else. Instead of doing many things poorly, why not do one thing well? (With your help, of course, so please report issues and make PRs).
+PostgreSquirrel (or SQURL) is a PostgreSQL query builder without plans to be anything else. Instead of doing many things poorly, why not do one thing well? (With your help, of course, so please report issues and make PRs).
 
 SQURL is not meant to abstract away the intricacies of SQL, nor is it meant to make it so its users don't need to know SQL. It is intended for the average SQL enjoyer to write SQL queries faster (while in a JavaScript environment). Ever forget if `ORDER BY` comes before or after `GROUP BY`? SQURL will tell you. To do so, the SQURL query builder uses the [builder pattern](https://refactoring.guru/design-patterns/builder).
 
