@@ -299,7 +299,7 @@ export class SQURL {
 
     for (const orderBy of orderByTerms) {
       this.orderByTerms.add(
-        `"${orderBy?.table || this.alias || `${this.schema}."${this.table}"`}".${orderBy.field}`
+        `"${orderBy?.table || this.alias || `${this.schema}."${this.table}"`}".${orderBy.field} ${orderBy.sort_order?.toUpperCase()}`
       );
     }
 
@@ -311,18 +311,10 @@ export class SQURL {
 
   private where: BuilderMethods.Where = (clauses: Where[]) => {
     this.whereClauses = new Set<string>();
-    if (!this.placeholders) {
-      this.placeholders = [];
-    }
 
     for (const clause of clauses) {
-      const placeholderLength =
-        (this.fields?.size || 0) + this.placeholders.length + 1;
-      this.placeholders.push(
-        `"${clause?.table || this.table}".${clause.field}`
-      );
       this.whereClauses.add(
-        `${this.placeholderChar || `$${placeholderLength}`} ${this.findClause(clause)}`
+        `${`"${clause?.table || this.table}".${clause.field}`} ${this.findClause(clause)}`
       );
     }
 
