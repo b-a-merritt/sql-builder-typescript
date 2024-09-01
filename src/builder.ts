@@ -7,9 +7,24 @@ import { OrderBy } from './types/order';
 import { Where } from './types/where';
 
 export class SQURL {
+  public static avg = (field: string, table: string) =>
+    `AVG("${table}".${field})`;
+
+  public static count = (field: string, table: string) =>
+    `COUNT("${table}".${field})`;
+
+  public static max = (field: string, table: string) =>
+    `MAX("${table}".${field})`;
+
+  public static min = (field: string, table: string) =>
+    `MIN("${table}".${field})`;
+
+  public static sum = (field: string, table: string) =>
+    `SUM("${table}".${field})`;
+
   private alias?: string;
   private delimiter: ' ' | '\n' = '\n';
-  private schema: string = 'public';
+  private schema?: string;
   private table: string;
   private type!: 'SELECT' | 'DELETE' | 'INSERT' | 'UPDATE';
   private placeholderChar: string | null;
@@ -28,7 +43,7 @@ export class SQURL {
   private placeholders?: string[];
 
   constructor(table: string, options?: InitializationOptions) {
-    this.schema = options?.schema || 'public';
+    this.schema = options?.schema;
     this.table = table;
     this.delimiter = !!options?.pretty ? '\n' : ' ';
     this.placeholderChar = !!options?.placeholderChar
@@ -113,7 +128,14 @@ export class SQURL {
   };
 
   private formatField = (bldr: Field, table: string) => {
-    if (typeof bldr === 'string') {
+    if (
+      typeof bldr === 'string' &&
+      ['AVG', 'SUM', 'COUNT', 'MIN', 'MAX'].some((item) =>
+        bldr.startsWith(item)
+      )
+    ) {
+      return bldr;
+    } else if (typeof bldr === 'string') {
       return `"${table}".${bldr}`;
     } else {
       const { alias, fields, groupByKey = 'id', relationship } = bldr;
@@ -177,7 +199,12 @@ export class SQURL {
   };
 
   private returning: BuilderMethods.Returning = (fields: string[]) => {
-    this.fields = new Set<string>(fields);
+    this.fields = new Set<string>();
+
+    for (const field of fields) {
+      this.fields.add(this.formatField(field, this.alias || this.table));
+    }
+
     return {
       query: this.query,
       where: this.where,
@@ -238,7 +265,9 @@ export class SQURL {
     }
 
     const placeholderLength =
-      (this.fields?.size || 0) + this.placeholders.length + 1;
+      this.type === 'UPDATE'
+        ? (this.changeKeys?.length || 0) + this.placeholders.length + 1
+        : this.placeholders.length + 1;
 
     if (clause?.between) {
       this.placeholders.push(this.formatValue(clause.between[0]));
@@ -320,6 +349,7 @@ export class SQURL {
 
     return {
       groupBy: this.groupBy,
+      limit: this.limit,
       orderBy: this.orderBy,
       query: this.query,
     };
@@ -340,21 +370,9 @@ export class SQURL {
 
   private formatSelect = () => {
     this.groupByKeysWithJoins();
-    const placeholders: string[] = [...this.fields!];
-    let currPlaceholder = 1;
-
-    const fields = `${[...this.fields!].map(() => {
-      const placeholder = this.placeholderChar || `$${currPlaceholder}`;
-      currPlaceholder++;
-      return placeholder;
-    })}${this.delimiter}`;
-
-    for (const param of this.placeholders || []) {
-      placeholders.push(param);
-    }
-
+    const fields = `${[...this.fields!]}${this.delimiter}`;
     const select = `SELECT${this.delimiter}`;
-    const from = `FROM ${this.schema}."${this.table}"${this.delimiter}`;
+    const from = `FROM ${this.schema ? this.schema + '.' : ''}"${this.table}"${this.delimiter}`;
     const as = this.alias ? ` AS "${this.alias}"${this.delimiter}` : '';
     const join = !!this.joinTerms
       ? `${[...this.joinTerms].join(this.delimiter)}${this.delimiter}`
@@ -363,12 +381,7 @@ export class SQURL {
       ? `WHERE ${[...this.whereClauses].join(this.delimiter + 'AND ')}${this.delimiter}`
       : '';
     const groupBy = !!this.groupByTerms
-      ? `GROUP BY ${[...this.groupByTerms]
-          .map((clause) => {
-            placeholders.push(clause);
-            return `${this.placeholderChar || `$${placeholders.length}`}`;
-          })
-          .join(',')}${this.delimiter}`
+      ? `GROUP BY ${[...this.groupByTerms].join(',')}${this.delimiter}`
       : '';
     const having = !!this.havingClauses
       ? `HAVING ${[...this.havingClauses].join(',' + this.delimiter)}${this.delimiter}`
@@ -379,20 +392,22 @@ export class SQURL {
     const limit = !!this.limitAmt
       ? `LIMIT ${this.limitAmt}${this.delimiter}`
       : '';
-    const offset = !!this.offsetAmt ? `OFFSET ${this.offsetAmt}` : '';
+    const offset = !!this.offsetAmt
+      ? `OFFSET ${this.offsetAmt}${this.delimiter}`
+      : '';
 
     const query = `${select}${fields}${from}${as}${join}${where}${groupBy}${having}${orderBy}${limit}${offset}`;
 
     return {
       query,
-      placeholders,
+      placeholders: this.placeholders,
     };
   };
 
   private formatInsert = () => {
     const placeholders: string[] = [];
 
-    const insertInto = `INSERT INTO ${this.schema}."${this.table}"${this.delimiter}`;
+    const insertInto = `INSERT INTO ${this.schema ? this.schema + '.' : ''}"${this.table}"${this.delimiter}`;
     const keys = `(${this.delimiter}${this.changeKeys!.join(',' + this.delimiter)}${this.delimiter})${this.delimiter}`;
     const values = `VALUES (${this.delimiter}${this.changeValues!.map(
       (value) => {
@@ -401,12 +416,7 @@ export class SQURL {
       }
     )!.join(',' + this.delimiter)}${this.delimiter})${this.delimiter}`;
     const returning = !!this.fields
-      ? `RETURNING ${[...this.fields]
-          .map((value) => {
-            placeholders.push(value);
-            return `${this.placeholderChar || `$${placeholders.length}`}`;
-          })
-          .join(',' + this.delimiter)}${this.delimiter}`
+      ? `RETURNING ${[...this.fields].join(',' + this.delimiter)}${this.delimiter}`
       : '';
 
     const query = `${insertInto}${keys}${values}${returning}`;
@@ -417,9 +427,7 @@ export class SQURL {
   };
 
   private formatDelete = () => {
-    const placeholders: string[] = [];
-
-    const deleteFrom = `DELETE FROM ${this.schema}."${this.table}"${this.delimiter}`;
+    const deleteFrom = `DELETE FROM ${this.schema ? this.schema + '.' : ''}"${this.table}"${this.delimiter}`;
     const where = !!this.whereClauses
       ? `WHERE ${[...this.whereClauses].join(this.delimiter + 'AND ')}${this.delimiter}`
       : '';
@@ -431,21 +439,22 @@ export class SQURL {
 
     return {
       query,
-      placeholders,
+      placeholders: this.placeholders,
     };
   };
 
   private formatUpdate = () => {
-    const placeholders: string[] = [];
+    if (!this.placeholders) {
+      this.placeholders = [];
+    }
 
-    const update = `UPDATE ${this.schema}."${this.table}"${this.delimiter}`;
-    const set = `SET (${this.delimiter}${this.changeKeys!.join(',' + this.delimiter)}${this.delimiter})${this.delimiter}`;
-    const values = `VALUES (${this.delimiter}${this.changeValues!.map(
-      (value) => {
-        placeholders.push(value);
-        return `${this.placeholderChar || `$${placeholders.length}`}`;
+    const update = `UPDATE ${this.schema ? this.schema + '.' : ''}"${this.table}"${this.delimiter}`;
+    const set = `SET${this.delimiter}${this.changeKeys!.map((item, i) => {
+      if (this.changeValues![i]) {
+        this.placeholders!.push(this.changeValues![i]);
       }
-    )!.join(',' + this.delimiter)}${this.delimiter})${this.delimiter}`;
+      return `${item} = $${i + 1}`;
+    }).join(',' + this.delimiter)}${this.delimiter}`;
     const where = !!this.whereClauses
       ? `WHERE ${[...this.whereClauses].join(this.delimiter + 'AND ')}${this.delimiter}`
       : '';
@@ -453,15 +462,11 @@ export class SQURL {
       ? `RETURNING ${[...this.fields].join(',' + this.delimiter)}`
       : '';
 
-    for (const param of this.placeholders!) {
-      placeholders.push(param);
-    }
-
-    const query = `${update}${set}${values}${where}${returning}`;
+    const query = `${update}${set}${where}${returning}`;
 
     return {
       query,
-      placeholders,
+      placeholders: this.placeholders,
     };
   };
 }

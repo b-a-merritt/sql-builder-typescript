@@ -71,6 +71,7 @@ export namespace BuilderMethods {
 
   export type Where = (where: WhereArg[]) => {
     groupBy: GroupBy;
+    limit: Limit;
     orderBy: OrderBy;
     query: Query;
   };
