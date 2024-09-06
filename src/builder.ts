@@ -115,7 +115,7 @@ export class SQURL {
     } else if (value instanceof Date) {
       return `'${value.toISOString()}'`;
     }
-    return `'${value}'`;
+    return `${value}`;
   };
 
   public delete: BuilderMethods.Delete = () => {
