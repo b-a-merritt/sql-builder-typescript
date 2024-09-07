@@ -42,4 +42,26 @@ describe('update', () => {
     expect(query.query).toEqual(expected);
     expect(query.placeholders?.length).toEqual(2);
   });
+
+  test('an array', () => {
+    const query = new SQURL('User', { schema: 'public' })
+      .update({
+        keywords: ['one', 'two', 'three'],
+      })
+      .where([
+        {
+          field: 'id',
+          equals: 6,
+          table: 'User',
+        },
+      ])
+      .query();
+
+    const expected =
+      'UPDATE public."User" SET "keywords" = $1 WHERE "User".id = $2 ';
+
+    expect(query.query).toEqual(expected);
+    expect(query.placeholders?.[0]).toEqual('6');
+    expect(query.placeholders?.[1]).toEqual(`{"one", "two", "three"}`);
+  });
 });

@@ -107,7 +107,7 @@ export class SQURL {
 
   private formatValue = (value: unknown) => {
     if (Array.isArray(value)) {
-      return `'{${value.join(', ')}}'`;
+      return `{${value.map((item) => `"${item}"`).join(', ')}}`;
     } else if (typeof value === 'string' && VALUE_KEYWORDS.includes(value)) {
       return value;
     } else if (typeof value === 'number') {
