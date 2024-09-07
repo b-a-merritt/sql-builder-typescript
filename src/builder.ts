@@ -408,7 +408,9 @@ export class SQURL {
     const placeholders: string[] = [];
 
     const insertInto = `INSERT INTO ${this.schema ? this.schema + '.' : ''}"${this.table}"${this.delimiter}`;
-    const keys = `(${this.delimiter}${this.changeKeys!.join(',' + this.delimiter)}${this.delimiter})${this.delimiter}`;
+    const keys = `(${this.delimiter}${this.changeKeys!.map((item) => {
+      return `"${item}"`;
+    }).join(',' + this.delimiter)}${this.delimiter})${this.delimiter}`;
     const values = `VALUES (${this.delimiter}${this.changeValues!.map(
       (value) => {
         placeholders.push(value);
@@ -453,7 +455,7 @@ export class SQURL {
       if (this.changeValues![i]) {
         this.placeholders!.push(this.changeValues![i]);
       }
-      return `${item} = $${i + 1}`;
+      return `"${item}" = $${i + 1}`;
     }).join(',' + this.delimiter)}${this.delimiter}`;
     const where = !!this.whereClauses
       ? `WHERE ${[...this.whereClauses].join(this.delimiter + 'AND ')}${this.delimiter}`

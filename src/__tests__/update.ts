@@ -7,7 +7,7 @@ describe('update', () => {
         date_of_birth: new Date(),
       })
       .query();
-    const expected = `UPDATE "User" SET date_of_birth = $1 `;
+    const expected = `UPDATE "User" SET "date_of_birth" = $1 `;
     expect(query.query).toEqual(expected);
   });
 
@@ -25,7 +25,7 @@ describe('update', () => {
         },
       ])
       .query();
-    const expected = `UPDATE "User" SET date_of_birth = $1, first_name = $2 WHERE "User".id = $3 `;
+    const expected = `UPDATE "User" SET "date_of_birth" = $1, "first_name" = $2 WHERE "User".id = $3 `;
     expect(query.query).toEqual(expected);
     expect(query.placeholders?.length).toEqual(3);
   });
@@ -38,7 +38,7 @@ describe('update', () => {
       })
       .returning(['id', 'date_of_birth'])
       .query();
-    const expected = `UPDATE "User" SET date_of_birth = $1, first_name = $2 RETURNING "User".id, "User".date_of_birth`;
+    const expected = `UPDATE "User" SET "date_of_birth" = $1, "first_name" = $2 RETURNING "User".id, "User".date_of_birth`;
     expect(query.query).toEqual(expected);
     expect(query.placeholders?.length).toEqual(2);
   });

@@ -1,6 +1,6 @@
 {
   "name": "postgresqurl",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Small utility for building sql statements",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

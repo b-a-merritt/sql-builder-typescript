@@ -11,12 +11,12 @@ describe('insert', () => {
       .query();
 
     const expected =
-      'INSERT INTO public."User" ( id, first_name, last_name ) VALUES ( $1, $2, $3 ) ';
+      'INSERT INTO public."User" ( "id", "first_name", "last_name" ) VALUES ( $1, $2, $3 ) ';
 
     expect(query.query).toEqual(expected);
     expect(query.placeholders?.[0]).toEqual('6');
-    expect(query.placeholders?.[1]).toEqual(`'Ben'`);
-    expect(query.placeholders?.[2]).toEqual(`'Merritt'`);
+    expect(query.placeholders?.[1]).toEqual(`Ben`);
+    expect(query.placeholders?.[2]).toEqual(`Merritt`);
   });
 
   test('returning', () => {
@@ -30,11 +30,11 @@ describe('insert', () => {
       .query();
 
     const expected =
-      'INSERT INTO public."User" ( id, first_name, last_name ) VALUES ( $1, $2, $3 ) RETURNING "User".id, "User".first_name ';
+      'INSERT INTO public."User" ( "id", "first_name", "last_name" ) VALUES ( $1, $2, $3 ) RETURNING "User".id, "User".first_name ';
 
     expect(query.query).toEqual(expected);
     expect(query.placeholders?.[0]).toEqual('6');
-    expect(query.placeholders?.[1]).toEqual(`'Ben'`);
-    expect(query.placeholders?.[2]).toEqual(`'Merritt'`);
+    expect(query.placeholders?.[1]).toEqual(`Ben`);
+    expect(query.placeholders?.[2]).toEqual(`Merritt`);
   });
 });
