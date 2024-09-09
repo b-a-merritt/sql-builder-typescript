@@ -61,7 +61,7 @@ describe('update', () => {
       'UPDATE public."User" SET "keywords" = $1 WHERE "User".id = $2 ';
 
     expect(query.query).toEqual(expected);
-    expect(query.placeholders?.[0]).toEqual('6');
-    expect(query.placeholders?.[1]).toEqual(`{"one", "two", "three"}`);
+    expect(query.placeholders?.[0]).toEqual(`{"one", "two", "three"}`);
+    expect(query.placeholders?.[1]).toEqual('6');
   });
 });

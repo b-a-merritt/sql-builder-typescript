@@ -446,14 +446,12 @@ export class SQURL {
   };
 
   private formatUpdate = () => {
-    if (!this.placeholders) {
-      this.placeholders = [];
-    }
+    const placeholders: string[] = [];
 
     const update = `UPDATE ${this.schema ? this.schema + '.' : ''}"${this.table}"${this.delimiter}`;
     const set = `SET${this.delimiter}${this.changeKeys!.map((item, i) => {
       if (this.changeValues![i]) {
-        this.placeholders!.push(this.changeValues![i]);
+        placeholders.push(this.changeValues![i]);
       }
       return `"${item}" = $${i + 1}`;
     }).join(',' + this.delimiter)}${this.delimiter}`;
@@ -468,7 +466,7 @@ export class SQURL {
 
     return {
       query,
-      placeholders: this.placeholders,
+      placeholders: [...placeholders, ...(this.placeholders || [])],
     };
   };
 }
