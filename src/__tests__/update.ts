@@ -58,7 +58,7 @@ describe('update', () => {
       .query();
 
     const expected =
-      'UPDATE public."User" SET "keywords" = $1 WHERE "User".id = $2 ';
+      'UPDATE public."User" SET "keywords" = $1 WHERE public."User".id = $2 ';
 
     expect(query.query).toEqual(expected);
     expect(query.placeholders?.[0]).toEqual(`{"one", "two", "three"}`);

@@ -8,13 +8,11 @@ describe('configuration', () => {
   });
 
   test('pretty formatting', () => {
-    const query = new SQURL('User', { pretty: true, schema: 'public' })
-      .select(['id'])
-      .query();
+    const query = new SQURL('User', { pretty: true }).select(['id']).query();
 
     const expected = `SELECT
 "User".id
-FROM public."User"
+FROM "User"
 `;
 
     expect(query.query).toEqual(expected);

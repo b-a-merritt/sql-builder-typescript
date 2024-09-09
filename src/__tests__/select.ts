@@ -5,7 +5,8 @@ describe('select', () => {
     const query = new SQURL('User', { schema: 'public' })
       .select(['id', 'first_name'])
       .query();
-    const expected = 'SELECT "User".id,"User".first_name FROM public."User" ';
+    const expected =
+      'SELECT public."User".id,public."User".first_name FROM public."User" ';
     expect(query.query).toEqual(expected);
   });
 
@@ -37,7 +38,8 @@ describe('select', () => {
       .query();
 
     const expected =
-      'SELECT "User".id,"User".first_name,"ContactInfo".id,"ContactInfo".city FROM public."User" LEFT JOIN public."ContactInfo" ON public."User".id = public."ContactInfo".user_id ';
+      'SELECT public."User".id,public."User".first_name,public."ContactInfo".id,public."ContactInfo".city' +
+      ' FROM public."User" LEFT JOIN public."ContactInfo" ON public."User".id = public."ContactInfo".user_id ';
 
     expect(query.query).toEqual(expected);
   });
@@ -74,7 +76,7 @@ describe('select', () => {
       .query();
 
     const expected =
-      'SELECT "User".id,"User".first_name,"ContactInfo".id,"ContactInfo".city,"Address".id ' +
+      'SELECT public."User".id,public."User".first_name,public."ContactInfo".id,public."ContactInfo".city,public."Address".id ' +
       'FROM public."User" LEFT JOIN public."ContactInfo" ON public."User".id = public."ContactInfo".user_id ' +
       'INNER JOIN public."Address" ON public."ContactInfo".id = public."Address".contact_info_id ';
 
@@ -123,6 +125,36 @@ describe('select', () => {
       ])
       .query();
     const expected = `SELECT "User".id FROM "User" WHERE "User".id >= $1 `;
+    expect(query.query).toEqual(expected);
+  });
+
+  test('where without schema', () => {
+    const query = new SQURL('User')
+      .select(['id'])
+      .where([
+        {
+          equals: 6,
+          field: 'id',
+          table: 'User',
+        },
+      ])
+      .query();
+    const expected = `SELECT "User".id FROM "User" WHERE "User".id = $1 `;
+    expect(query.query).toEqual(expected);
+  });
+
+  test('where with schema', () => {
+    const query = new SQURL('User', { schema: 'public' })
+      .select(['id'])
+      .where([
+        {
+          equals: 6,
+          field: 'id',
+          table: 'User',
+        },
+      ])
+      .query();
+    const expected = `SELECT public."User".id FROM public."User" WHERE public."User".id = $1 `;
     expect(query.query).toEqual(expected);
   });
 

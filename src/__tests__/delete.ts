@@ -20,7 +20,7 @@ describe('delete', () => {
       ])
       .query();
 
-    const expected = 'DELETE FROM public."User" WHERE "User".id = $1 ';
+    const expected = 'DELETE FROM public."User" WHERE public."User".id = $1 ';
 
     expect(query.query).toEqual(expected);
     expect(query.placeholders?.[0]).toEqual('1');
@@ -44,7 +44,7 @@ describe('delete', () => {
       .query();
 
     const expected =
-      'DELETE FROM public."User" WHERE "User".id = $1 AND "User".age BETWEEN $2 AND $3 ';
+      'DELETE FROM public."User" WHERE public."User".id = $1 AND public."User".age BETWEEN $2 AND $3 ';
 
     expect(query.query).toEqual(expected);
     expect(query.placeholders?.[0]).toEqual('1');
@@ -66,7 +66,7 @@ describe('delete', () => {
       .query();
 
     const expected =
-      'DELETE FROM public."User" WHERE "User".id = $1 RETURNING "User".id';
+      'DELETE FROM public."User" WHERE public."User".id = $1 RETURNING public."User".id';
 
     expect(query.query).toEqual(expected);
     expect(query.placeholders?.[0]).toEqual('1');

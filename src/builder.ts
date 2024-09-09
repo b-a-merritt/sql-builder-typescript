@@ -128,6 +128,7 @@ export class SQURL {
   };
 
   private formatField = (bldr: Field, table: string) => {
+    const schema = this.schema && !this.alias ? this.schema + '.' : '';
     if (
       typeof bldr === 'string' &&
       ['AVG', 'SUM', 'COUNT', 'MIN', 'MAX'].some((item) =>
@@ -136,18 +137,21 @@ export class SQURL {
     ) {
       return bldr;
     } else if (typeof bldr === 'string') {
-      return `"${table}".${bldr}`;
+      return `${schema}"${table}".${bldr}`;
     } else {
       const { alias, fields, groupByKey = 'id', relationship } = bldr;
 
       const jsonAggValue = `jsonb_build_object(${this.delimiter}${fields
-        .map((field) => `'${field}', "${table}".${field},${this.delimiter}`)
-        .join('')}'${groupByKey}', "${table}".${groupByKey})`;
+        .map(
+          (field) =>
+            `'${field}', ${schema}"${table}".${field},${this.delimiter}`
+        )
+        .join('')}'${groupByKey}', ${schema}"${table}".${groupByKey})`;
 
       if (relationship === 'ONE_TO_ONE') {
         return `${jsonAggValue}${this.delimiter}AS "${alias}"`;
       } else {
-        return `COALESCE(${this.delimiter}jsonb_agg(${this.delimiter}DISTINCT ${jsonAggValue}${this.delimiter})${this.delimiter}FILTER (WHERE "${table}".${groupByKey} IS NOT NULL), '[]'${this.delimiter})${this.delimiter}AS "${alias}"`;
+        return `COALESCE(${this.delimiter}jsonb_agg(${this.delimiter}DISTINCT ${jsonAggValue}${this.delimiter})${this.delimiter}FILTER (WHERE ${schema}"${table}".${groupByKey} IS NOT NULL), '[]'${this.delimiter})${this.delimiter}AS "${alias}"`;
       }
     }
   };
@@ -343,7 +347,7 @@ export class SQURL {
 
     for (const clause of clauses) {
       this.whereClauses.add(
-        `${`"${clause?.table || this.table}".${clause.field}`} ${this.findClause(clause)}`
+        `${`${this.schema ? this.schema + '.' : ''}"${clause?.table || this.table}".${clause.field}`} ${this.findClause(clause)}`
       );
     }
 
