@@ -347,7 +347,7 @@ export class SQURL {
 
     for (const clause of clauses) {
       this.whereClauses.add(
-        `${`${this.schema ? this.schema + '.' : ''}"${clause?.table || this.table}".${clause.field}`} ${this.findClause(clause)}`
+        `${`${this.schema && !this.alias ? this.schema + '.' : ''}"${clause?.table || this.alias || this.table}".${clause.field}`} ${this.findClause(clause)}`
       );
     }
 

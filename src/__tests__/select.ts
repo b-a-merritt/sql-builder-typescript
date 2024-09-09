@@ -158,6 +158,21 @@ describe('select', () => {
     expect(query.query).toEqual(expected);
   });
 
+  test('where with schema and alias', () => {
+    const query = new SQURL('User', { schema: 'public' })
+      .as('u')
+      .select(['id'])
+      .where([
+        {
+          equals: 6,
+          field: 'id',
+        },
+      ])
+      .query();
+    const expected = `SELECT "u".id FROM public."User"  AS "u" WHERE "u".id = $1 `;
+    expect(query.query).toEqual(expected);
+  });
+
   test('group by', () => {
     const query = new SQURL('User')
       .select(['id'])
